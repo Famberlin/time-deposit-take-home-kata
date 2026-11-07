@@ -12,6 +12,12 @@ spring:
       # Flyway owns the schema; Hibernate only checks that the entities match it.
       ddl-auto: validate
 
+# JSON console logs in Elastic Common Schema; the local profile switches back to plain text.
+logging:
+  structured:
+    format:
+      console: ecs
+
 time-deposits:
   balance-update:
     # Deposits locked and updated per transaction by PUT /api/v1/time-deposits/balances.
