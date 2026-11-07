@@ -28,6 +28,15 @@ class TimeDepositServiceTest {
     }
 
     @Test
+    void updateAllBalancesReadsBalancesThroughTheLockingQuery() {
+        repository.add(deposit(1, "basic", "1000.00", 31));
+
+        service.updateAllBalances();
+
+        assertThat(repository.lockCalls()).isEqualTo(1);
+    }
+
+    @Test
     void updateAllBalancesKeepsDays() {
         repository.add(deposit(1, "basic", "1000.00", 31));
 
@@ -62,6 +71,7 @@ class TimeDepositServiceTest {
 
         private final List<TimeDepositView> deposits = new ArrayList<>();
         private final List<Integer> savedDays = new ArrayList<>();
+        private int lockCalls;
 
         void add(TimeDepositView deposit) {
             deposits.add(deposit);
@@ -73,6 +83,18 @@ class TimeDepositServiceTest {
 
         List<Integer> savedDays() {
             return savedDays;
+        }
+
+        int lockCalls() {
+            return lockCalls;
+        }
+
+        @Override
+        public List<TimeDeposit> lockAllForUpdate() {
+            lockCalls++;
+            return deposits.stream()
+                    .map(d -> new TimeDeposit(d.id(), d.planType(), d.balance().doubleValue(), d.days()))
+                    .toList();
         }
 
         @Override

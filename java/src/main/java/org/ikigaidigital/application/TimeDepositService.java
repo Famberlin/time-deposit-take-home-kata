@@ -23,13 +23,12 @@ public class TimeDepositService implements UpdateAllBalancesUseCase, ListTimeDep
 
     /**
      * Withdrawals are not part of the interest calculation: the requirements and the existing
-     * calculator only use plan type, days and balance.
+     * calculator only use plan type, days and balance. Must run in one transaction: the rows stay
+     * locked from {@code lockAllForUpdate} until the balances are saved.
      */
     @Override
     public void updateAllBalances() {
-        List<TimeDeposit> deposits = repository.loadAll().stream()
-                .map(TimeDepositService::toTimeDeposit)
-                .toList();
+        List<TimeDeposit> deposits = repository.lockAllForUpdate();
         calculator.updateBalance(deposits);
         repository.saveBalances(deposits);
     }
@@ -37,9 +36,5 @@ public class TimeDepositService implements UpdateAllBalancesUseCase, ListTimeDep
     @Override
     public List<TimeDepositView> listAll() {
         return repository.loadAll();
-    }
-
-    private static TimeDeposit toTimeDeposit(TimeDepositView view) {
-        return new TimeDeposit(view.id(), view.planType(), view.balance().doubleValue(), view.days());
     }
 }
