@@ -28,6 +28,10 @@
         <logback.version>1.6.3</logback.version>
         <jackson-bom.version>3.2.4</jackson-bom.version>
         <jackson-2-bom.version>2.22.4</jackson-2-bom.version>
+        <json-smart.version>2.6.1</json-smart.version>
+        <asm.version>9.11.1</asm.version>
+        <org-json.version>20260814</org-json.version>
+
         <!-- Versions not managed by Spring Boot. -->
         <openapi-generator.version>7.27.0</openapi-generator.version>
         <springdoc.version>3.2.0</springdoc.version>
@@ -36,6 +40,17 @@
         <palantir-java-format.version>2.103.0</palantir-java-format.version>
         <jacoco.version>0.8.16</jacoco.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Not managed by Spring Boot; pulled in transitively by test dependencies (CVE-2026-110260 and others). -->
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>${asm.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -72,6 +87,19 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Unmaintained org.json repackage without a nesting limit (CVE-2026-110974). -->
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${org-json.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
