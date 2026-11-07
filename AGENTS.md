@@ -4,7 +4,7 @@ Rules for any coding agent working in this repo. Task requirements live in `READ
 
 ## Scope
 
-- Work only in `java/` and `kotlin/` (Maven, JDK 17).
+- Work only in `java/` and `kotlin/` (Maven, JDK 25).
 - Ignore `c#/`, `python/` and `typescript/`. They are excluded in `.gitignore`: do not read, search, build or edit them, and leave them out of greps (`grep -r --exclude-dir={c#,python,typescript,target,.idea}`).
 - Never read `target/`, `.idea/` or `*.iml`.
 
@@ -12,12 +12,12 @@ Rules for any coding agent working in this repo. Task requirements live in `READ
 
 ```
 README.md                         assignment and requirements
-java/pom.xml                      JUnit 5, AssertJ
+java/pom.xml                      JUnit 6, AssertJ
 java/src/main/java/org/ikigaidigital/
   TimeDeposit.java                shared model; do not break its API
   TimeDepositCalculator.java      updateBalance; keep signature and behaviour
 java/src/test/java/org/ikigaidigital/TimeDepositCalculatorTest.java
-kotlin/pom.xml                    Kotlin 1.7, JUnit 5, AssertJ
+kotlin/pom.xml                    Kotlin 2.4, JUnit 6, AssertJ
 kotlin/src/main/kotlin/org/ikigaidigital/
   TimeDeposit.kt
   TimeDepositCalculator.kt
