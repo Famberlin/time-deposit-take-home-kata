@@ -37,7 +37,7 @@ org.ikigaidigital
   TimeDeposit, TimeDepositCalculator   existing API, unchanged
   domain/interest/                     InterestPolicy (fun interface), Basic/Student/Premium policies, InterestPolicies registry
   application/port/in/                 UpdateAllBalancesUseCase, ListTimeDepositsUseCase
-  application/port/out/                TimeDepositRepository (loadAllForUpdate, loadAllWithWithdrawals, saveBalances), Transactor
+  application/port/out/                TimeDepositRepository (loadAllWithWithdrawals, lockBatchForUpdate, saveBalances), Transactor
   application/                         TimeDepositService, read model (TimeDepositView, WithdrawalView)
   adapter/in/web/                      Ktor routes, DTO mapping to generated models
   adapter/out/persistence/             Exposed tables, repository, ExposedTransactor
@@ -46,8 +46,9 @@ org.ikigaidigital
 
 - **Calculator:** same Strategy + registry refactor as Java. Default constructor argument wires the default policies, so `TimeDepositCalculator()` still works.
 - **`days` does not advance**; KDoc on `updateBalance` with a `TODO`, as in Java.
-- **Transactions:** without Spring's `@Transactional`, the service runs load, calculate and save inside `Transactor.inTransaction { }`, a port implemented with Exposed `suspendTransaction` on `Dispatchers.IO`. The application layer never imports Exposed.
-- **Row locking:** `loadAllForUpdate` selects with `FOR UPDATE` (Exposed `.forUpdate()`), so concurrent `PUT`s are serialized and never both apply interest to the same starting balance.
+- **Update flow:** in batches of `timeDeposits.balanceUpdate.batchSize` (default 500), each in its own transaction: lock and load the next batch (`SELECT ... FOR UPDATE`, `id > last id`, ordered by id), call `updateBalance`, save balances, commit. Same as Java.
+- **Transactions:** without Spring's `@Transactional`, the service wraps each batch in `Transactor.inTransaction { }`, a port implemented with Exposed `suspendTransaction` on `Dispatchers.IO`. The application layer never imports Exposed.
+- **Row locking:** `lockBatchForUpdate` uses Exposed `.forUpdate()`, so concurrent `PUT`s wait for each other per batch and never apply one month twice to the same balance, while the rest of the table stays unlocked. Locks are taken in id order to avoid deadlocks. `GET` takes no locks. Trade-off: a run is not atomic; if it fails, committed batches keep their new balances.
 - **Withdrawals:** GET loads deposits and withdrawals in two queries and groups them in memory (no N+1). Not used in interest calculation.
 - `Double` ↔ `BigDecimal(scale 2)` conversion at the persistence boundary.
 
@@ -62,13 +63,13 @@ Same contract as Java, copied to `src/main/resources/openapi/time-deposits.yaml`
 | Method | Path | Result |
 | --- | --- | --- |
 | `GET` | `/api/v1/time-deposits` | `200` `TimeDepositPage` `{ items, total }`; pagination `TODO` |
-| `PUT` | `/api/v1/time-deposits/balances` | `204`; applies one month of interest |
+| `PUT` | `/api/v1/time-deposits/balances` | `204`; applies one month of interest (batched, concurrent calls serialized by row locks) |
 
 Only models are generated. Routes are hand-written because the generator's Ktor server output is a whole app skeleton, not an interface to implement. A contract test validates real responses against the YAML (`swagger-request-validator`), which replaces the compile-time check Java gets from the generated interface. Swagger UI at `/swagger-ui`.
 
 ## Config and profiles
 
-`application.yaml` (Ktor YAML config) with `${?ENV}` overrides for `DB_URL`, `DB_USER`, `DB_PASSWORD`. Profile via `APP_PROFILE` (`local`, `dev`, default none). For `local`/`dev`, the server adds a second connector on port 8081 serving `GET /health` (checks a DB connection) and `GET /info` (version from the jar manifest), so port 8080 only serves the API.
+`application.yaml` (Ktor YAML config) with `${?ENV}` overrides for `DB_URL`, `DB_USER`, `DB_PASSWORD`, plus `timeDeposits.balanceUpdate.batchSize`. Profile via `APP_PROFILE` (`local`, `dev`, default none). For `local`/`dev`, the server adds a second connector on port 8081 serving `GET /health` (checks a DB connection) and `GET /info` (version from the jar manifest), so port 8080 only serves the API.
 
 ## Testing
 
@@ -76,9 +77,9 @@ Only models are generated. Routes are hand-written because the generator's Ktor 
 | --- | --- |
 | Calculator | Characterization tests (all plans, days 30/31/45/46/365/366, unknown plan, rounding), written before the refactor |
 | Policies, service | Plain JUnit 6; service against an in-memory repository and a no-op transactor |
-| Persistence | Testcontainers PostgreSQL + Flyway: migrations, mapping, two-query loading |
+| Persistence | Testcontainers PostgreSQL + Flyway: migrations, mapping, locking query, two-query loading |
 | Web | `testApplication` with fake use cases: paths, status codes, JSON shape; contract validation against the YAML |
-| End to end | `testApplication` with the real module + Testcontainers: `PUT` then `GET` |
+| End to end | `testApplication` with the real module + Testcontainers: `PUT` then `GET` across several batches; parallel updates each apply one month; only the current batch is locked |
 | Architecture | Konsist layer rules |
 
 Unit tests in `test` (surefire), container tests in `verify` (failsafe, `*IT`). CI already runs `mvn -B verify` for `kotlin`.
@@ -110,7 +111,7 @@ Each step is one or a few atomic commits that keep `mvn -B verify` green.
 
 | Topic | Decision |
 | --- | --- |
-| Concurrent `PUT` | Locks affected rows (`SELECT … FOR UPDATE`), same as Java |
+| Concurrent `PUT` | Batches of configurable size (default 500), one transaction per batch, locking only that batch's rows (`SELECT … FOR UPDATE`); same as Java |
 
 ## Open questions (defaults used unless told otherwise)
 
