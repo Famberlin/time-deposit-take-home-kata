@@ -123,6 +123,12 @@ Before starting the refactoring, the `java/` and `kotlin/` projects were moved t
 | junit-bom | 5.9.1 | 6.1.3 | |
 | assertj-core | 3.23.1 | 3.27.7 | |
 
+### Security findings
+
+| Finding | Decision |
+|---------|----------|
+| `SNYK-JAVA-ORGGLASSFISHJAXB-20883142` (CVE-2026-92877), XXE in `org.glassfish.jaxb:jaxb-core` 4.0.9, via `hibernate-core` | No fixed release exists yet (4.0.9 is the latest; the fix is only on the upstream `master` branch). Ignored in [`java/.snyk`](java/.snyk) until 2027-01-07 because it is not exploitable here: Hibernate uses JAXB only to read its own mapping XML from the classpath at startup, the service has no mapping XML (annotations only), and the API accepts JSON only. When a fixed `jaxb-core` ships, pin it in `java/pom.xml` and delete the ignore. |
+
 ### Continuous integration
 
 `.github/workflows/build.yml` builds and tests both projects (`mvn -B verify`) on Temurin JDK 25 for every push to `main` and every pull request.
