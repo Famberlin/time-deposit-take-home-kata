@@ -87,3 +87,8 @@ PostgreSQL, schema managed by Flyway: [`src/main/resources/db/migration`](src/ma
 | `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | Database connection |
 | `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` | Deposits per transaction for the balance update (default 500) |
 | `SPRING_PROFILES_ACTIVE` | `local` loads demo data; `local` and `dev` enable actuator (`health`, `info` on port 8081) |
+
+## Improvements
+
+- **TODO: idempotent, retry-safe balance update.** Deposits are independent, so updating them together, in batches or one at a time gives the same balances. But `PUT /time-deposits/balances` is not idempotent: every call adds one more (compounding) month, and `days` is not advanced, so the balance depends on how often it is called, not on elapsed time. A run is also not all-or-nothing: retrying after a partial failure gives a second month to the batches already committed. Kept as is until the requirements are clarified. One possible fix: store the last interest period per deposit (for example the month) and skip deposits that already have it, and advance `days` (or derive it from a start date).
+- **TODO: pagination** for `GET /time-deposits` (`page`/`size`), non-breaking thanks to the `{ items, total }` wrapper.

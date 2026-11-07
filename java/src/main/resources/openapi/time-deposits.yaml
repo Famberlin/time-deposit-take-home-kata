@@ -39,6 +39,11 @@ paths:
         one transaction per batch, locking only the rows of the current batch. Concurrent
         calls wait on those row locks, so each call applies exactly one month to every
         deposit. A failed call can leave earlier batches updated. `days` is not changed.
+
+        TODO: not idempotent and not safe to retry. Each call adds a month and `days` is not
+        advanced, so balances depend on the number of calls rather than elapsed time, and
+        retrying after a partial failure applies a second month to batches already committed.
+        Kept as is until the requirements are clarified; see "Improvements" in java/README.md.
       responses:
         '204':
           description: Balances updated
