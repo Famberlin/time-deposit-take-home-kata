@@ -11,10 +11,11 @@ public interface TimeDepositRepository {
     List<TimeDepositView> loadAll();
 
     /**
-     * All deposits without withdrawals, with their rows locked until the surrounding transaction ends,
-     * so a concurrent balance update waits instead of applying interest to the same balance twice.
+     * Up to {@code limit} deposits with an id greater than {@code afterId}, ordered by id and without
+     * withdrawals. Their rows stay locked until the surrounding transaction ends, so a concurrent
+     * balance update waits for them instead of applying interest to the same balance twice.
      */
-    List<TimeDeposit> lockAllForUpdate();
+    List<TimeDeposit> lockBatchForUpdate(int afterId, int limit);
 
     /** Stores the balance of each given deposit, matched by id. Other fields are not written. */
     void saveBalances(List<TimeDeposit> deposits);

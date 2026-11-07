@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.ikigaidigital.TimeDeposit;
 import org.ikigaidigital.application.TimeDepositView;
 import org.ikigaidigital.application.port.out.TimeDepositRepository;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,8 +33,8 @@ class TimeDepositPersistenceAdapter implements TimeDepositRepository {
     /** Requires an active transaction; the locks are released when it ends. */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public List<TimeDeposit> lockAllForUpdate() {
-        return repository.findAllForUpdate().stream()
+    public List<TimeDeposit> lockBatchForUpdate(int afterId, int limit) {
+        return repository.findByIdGreaterThanOrderByIdAsc(afterId, Limit.of(limit)).stream()
                 .map(TimeDepositMapper::toTimeDeposit)
                 .toList();
     }

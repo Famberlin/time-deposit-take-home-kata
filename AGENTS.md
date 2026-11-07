@@ -23,7 +23,7 @@ java/src/main/java/org/ikigaidigital/
   application/                    TimeDepositService, read model, port/in, port/out
   adapter/in/web/                 controller implementing the generated TimeDepositsApi
   adapter/out/persistence/        JPA entities, repository (row locking), mapper
-  config/                         Spring wiring, transactions
+  config/                         Spring wiring, TransactionRunner, settings (batch size)
 java/src/main/resources/
   openapi/time-deposits.yaml      API contract (source of truth)
   db/migration/, db/seed/         Flyway migrations; seed only for the local profile

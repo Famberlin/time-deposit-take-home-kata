@@ -34,10 +34,13 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** Whole service on PostgreSQL in Docker: HTTP, use cases, persistence and Flyway migrations. */
-@SpringBootTest
+@SpringBootTest(properties = "time-deposits.balance-update.batch-size=" + TimeDepositApplicationIT.BATCH_SIZE)
 @AutoConfigureMockMvc
 @Import(PostgresContainerConfiguration.class)
 class TimeDepositApplicationIT {
+
+    /** Smaller than the number of deposits, so every update runs several batches. */
+    static final int BATCH_SIZE = 2;
 
     /** PostgreSQL error code for "lock_not_available". */
     private static final String LOCK_NOT_AVAILABLE = "55P03";
@@ -113,30 +116,36 @@ class TimeDepositApplicationIT {
     }
 
     @Test
-    void balanceUpdateLocksTheDepositRows() {
+    void balanceUpdateLocksTheRowsOfTheCurrentBatchOnly() {
         transactionTemplate.executeWithoutResult(status -> {
-            repository.lockAllForUpdate();
+            repository.lockBatchForUpdate(Integer.MIN_VALUE, BATCH_SIZE);
 
             assertThatExceptionOfType(SQLException.class)
-                    .isThrownBy(() -> tryLockFromAnotherConnection())
+                    .isThrownBy(() -> tryLockFromAnotherConnection("id <= 2"))
                     .satisfies(e -> assertThat(e.getSQLState()).isEqualTo(LOCK_NOT_AVAILABLE));
+            assertThatNoException()
+                    .as("rows of later batches stay free")
+                    .isThrownBy(() -> tryLockFromAnotherConnection("id > 2"));
         });
 
-        assertThatNoException().as("locks are released on commit").isThrownBy(this::tryLockFromAnotherConnection);
+        assertThatNoException()
+                .as("locks are released on commit")
+                .isThrownBy(() -> tryLockFromAnotherConnection("true"));
     }
 
     @Test
     void lockingRequiresATransaction() {
-        assertThatExceptionOfType(IllegalTransactionStateException.class).isThrownBy(repository::lockAllForUpdate);
+        assertThatExceptionOfType(IllegalTransactionStateException.class)
+                .isThrownBy(() -> repository.lockBatchForUpdate(Integer.MIN_VALUE, BATCH_SIZE));
     }
 
     /** Uses its own connection, outside the Spring-managed transaction. */
-    private void tryLockFromAnotherConnection() throws SQLException {
+    private void tryLockFromAnotherConnection(String condition) throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             connection.setAutoCommit(false);
             try {
-                statement.execute("SELECT id FROM time_deposits FOR UPDATE NOWAIT");
+                statement.execute("SELECT id FROM time_deposits WHERE " + condition + " FOR UPDATE NOWAIT");
             } finally {
                 connection.rollback();
             }

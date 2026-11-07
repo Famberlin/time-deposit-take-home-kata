@@ -35,8 +35,10 @@ paths:
       summary: Apply one month of interest to every balance
       description: |
         Adds one month of interest to the balance of every time deposit. Not idempotent:
-        each call adds another month. Concurrent calls are serialized by row locks, so
-        each call applies exactly one month. `days` is not changed.
+        each call adds another month. Deposits are updated in batches (configurable size),
+        one transaction per batch, locking only the rows of the current batch. Concurrent
+        calls wait on those row locks, so each call applies exactly one month to every
+        deposit. A failed call can leave earlier batches updated. `days` is not changed.
       responses:
         '204':
           description: Balances updated

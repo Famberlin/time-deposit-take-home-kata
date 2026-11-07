@@ -89,12 +89,23 @@ class TimeDepositPersistenceAdapterIT {
     }
 
     @Test
-    void lockAllForUpdateReturnsDepositsOrderedById() {
-        List<TimeDeposit> deposits = adapter.lockAllForUpdate();
+    void lockBatchForUpdateReturnsDepositsOrderedById() {
+        List<TimeDeposit> deposits = adapter.lockBatchForUpdate(Integer.MIN_VALUE, 10);
 
         assertThat(deposits)
                 .extracting(TimeDeposit::getId, TimeDeposit::getPlanType, TimeDeposit::getBalance, TimeDeposit::getDays)
                 .containsExactly(tuple(basicId, "basic", 1000.00, 31), tuple(premiumId, "premium", 2000.50, 46));
+    }
+
+    @Test
+    void lockBatchForUpdateStartsAfterTheGivenIdAndRespectsTheLimit() {
+        assertThat(adapter.lockBatchForUpdate(Integer.MIN_VALUE, 1))
+                .extracting(TimeDeposit::getId)
+                .containsExactly(basicId);
+        assertThat(adapter.lockBatchForUpdate(basicId, 1))
+                .extracting(TimeDeposit::getId)
+                .containsExactly(premiumId);
+        assertThat(adapter.lockBatchForUpdate(premiumId, 1)).isEmpty();
     }
 
     @Test

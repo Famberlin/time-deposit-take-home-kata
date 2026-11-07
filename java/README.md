@@ -46,7 +46,7 @@ Example `GET` response (shortened to one deposit):
 }
 ```
 
-Each `PUT` adds another month (it is not idempotent). It locks the deposit rows until it commits, so concurrent calls run one after the other and each applies exactly one month. `days` is not advanced.
+Each `PUT` adds another month (it is not idempotent). It works through the deposits in batches (`time-deposits.balance-update.batch-size`, default 500), one transaction per batch, and locks only the rows of the current batch until that batch commits. Concurrent calls wait on those locks, so each applies exactly one month to every deposit. If a call fails, batches already committed keep their new balances. `days` is not advanced.
 
 Interest per month: basic 1%, student 3% (none after 1 year), premium 5% (from day 46); no plan earns interest in the first 30 days.
 
@@ -70,7 +70,7 @@ Hexagonal, in one Maven module; `ArchitectureTest` (ArchUnit) keeps the core fre
 | `application` | `TimeDepositService`, read model, `port.in` use cases, `port.out` repository |
 | `adapter.in.web` | Controller implementing the interface generated from the OpenAPI contract |
 | `adapter.out.persistence` | JPA entities, Spring Data repository, mapper |
-| `config` | Spring wiring and transactions around the use cases |
+| `config` | Spring wiring, `TransactionRunner` on Spring transactions, settings |
 
 - **Interest:** `updateBalance` delegates to `InterestPolicies` (Strategy + registry). A new plan is a new `InterestPolicy`, registered in `InterestPolicies.defaults()` or passed to `new TimeDepositCalculator(InterestPolicies.of(...))`. Characterization tests pin the original results, including rounding.
 - **Assumptions:** `days` is not advanced by an update (original behaviour, `TODO` in the Javadoc); withdrawals are listed but do not affect interest; unknown plan types earn nothing; invalid input is not handled (out of scope).
@@ -85,4 +85,5 @@ PostgreSQL, schema managed by Flyway: [`src/main/resources/db/migration`](src/ma
 | Variable | Purpose |
 | --- | --- |
 | `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | Database connection |
+| `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` | Deposits per transaction for the balance update (default 500) |
 | `SPRING_PROFILES_ACTIVE` | `local` loads demo data; `local` and `dev` enable actuator (`health`, `info` on port 8081) |
