@@ -90,6 +90,7 @@ PostgreSQL, schema managed by Flyway: [`src/main/resources/db/migration`](src/ma
 | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Database connection. Required: `application.yaml` reads them with no defaults. Compose sets them from `.env`; tests get the connection from Testcontainers |
 | `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | Optional: the standard Spring Boot variables, which override the `DATABASE_*` values |
 | `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` | Deposits per transaction for the balance update (default 500) |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | Console log format: `ecs` JSON by default, plain text with the `local` profile; also `logstash`, `gelf`, or empty for plain text |
 | `SPRING_PROFILES_ACTIVE` | `local` loads demo data; `local` and `dev` enable actuator (`health`, `info` on port 8081) |
 
 ## Moving back to Java 17

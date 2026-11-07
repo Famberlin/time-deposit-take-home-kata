@@ -3,6 +3,12 @@ spring:
     # Demo data, including the 30/45/365-day edges, for local runs only.
     locations: classpath:db/migration,classpath:db/seed
 
+logging:
+  structured:
+    format:
+      # Plain text logs for local runs; an empty format turns structured logging off.
+      console: ""
+
 management:
   server:
     port: 8081
