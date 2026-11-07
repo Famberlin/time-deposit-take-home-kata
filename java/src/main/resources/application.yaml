@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: time-deposit
+  datasource:
+    # Overridden with SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME and SPRING_DATASOURCE_PASSWORD.
+    url: jdbc:postgresql://localhost:5432/time_deposits
+    username: time_deposits
+    password: time_deposits
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks that the entities match it.
+      ddl-auto: validate
+
+# Actuator is off by default so the API port serves only the two endpoints.
+# The local and dev profiles turn it on, on a separate management port.
+management:
+  server:
+    port: -1
+  endpoints:
+    access:
+      default: none
