@@ -1,11 +1,13 @@
 spring:
   application:
     name: time-deposit
+  # No credentials or defaults here: the values come from DATABASE_URL, DATABASE_USERNAME and
+  # DATABASE_PASSWORD. The standard SPRING_DATASOURCE_* variables still override them.
+  # Tests get theirs from Testcontainers (@ServiceConnection in PostgresContainerConfiguration).
   datasource:
-    # Overridden with SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME and SPRING_DATASOURCE_PASSWORD.
-    url: jdbc:postgresql://localhost:5432/time_deposits
-    username: time_deposits
-    password: time_deposits
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
