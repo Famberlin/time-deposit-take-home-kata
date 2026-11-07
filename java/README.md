@@ -11,8 +11,11 @@ Spring Boot service for XA Bank time deposits: lists deposits and applies monthl
 
 ```bash
 cd java
+cp .env.example .env   # once; then set your own credentials in .env
 docker compose up --build
 ```
+
+Compose reads the database name, user and password from `java/.env`, which is git-ignored and never committed. [`.env.example`](.env.example) is the template; compose stops with an error if a variable is missing.
 
 Then open Swagger UI at <http://localhost:8080/swagger-ui.html>. The `local` profile loads demo data (every plan and the 30/45/365-day edges). Actuator health: <http://localhost:8081/actuator/health>.
 
