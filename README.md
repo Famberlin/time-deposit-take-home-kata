@@ -126,3 +126,5 @@ Before starting the refactoring, the `java/` and `kotlin/` projects were moved t
 ### Continuous integration
 
 `.github/workflows/build.yml` builds and tests both projects (`mvn -B verify`) on Temurin JDK 25 for every push to `main` and every pull request.
+
+To move the Java service back to Java 17 (for example for a runtime that has no Java 25 yet), follow [Moving back to Java 17](java/README.md#moving-back-to-java-17): no dependency has to change, only the JDK settings, the Docker images, CI and three small code spots.

@@ -88,6 +88,25 @@ PostgreSQL, schema managed by Flyway: [`src/main/resources/db/migration`](src/ma
 | `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` | Deposits per transaction for the balance update (default 500) |
 | `SPRING_PROFILES_ACTIVE` | `local` loads demo data; `local` and `dev` enable actuator (`health`, `info` on port 8081) |
 
+## Moving back to Java 17
+
+Everything this service depends on still supports Java 17: Spring Boot 4.1 (Spring Framework 7, Hibernate 7), Flyway, springdoc 3, JUnit 6, Testcontainers, ArchUnit, and the openapi-generator and Spotless (palantir-java-format) build plugins. No dependency or plugin has to change. Checked by building with `-Djava.version=17` on JDK 17 (`mvn package` plus `spotless:check`, all unit tests green) after the code changes below; no runtime dependency ships classes newer than Java 17.
+
+1. **`pom.xml`:** set `<java.version>17</java.version>`. The Spring Boot parent passes it to `maven.compiler.release`, which also rejects APIs that are newer than 17.
+2. **Code:** three uses of newer APIs, all in small spots:
+
+   | File | Java 21+ API | Java 17 replacement |
+   | --- | --- | --- |
+   | `application/TimeDepositService.java` | `deposits.getLast()` (Java 21) | `deposits.get(deposits.size() - 1)` |
+   | `TimeDepositCalculatorTest.java`, `TimeDepositPersistenceAdapterIT.java` | `list.getFirst()` (Java 21) | `list.get(0)` |
+   | `TimeDepositApplicationIT.java` | `try (ExecutorService executor = ...)` (`AutoCloseable` since Java 19) | create the executor before `try` and call `executor.shutdown()` in `finally` |
+
+3. **`Dockerfile`:** `maven:3.9-eclipse-temurin-25` becomes `maven:3.9-eclipse-temurin-17`, and `eclipse-temurin:25-jre` becomes `eclipse-temurin:17-jre`.
+4. **CI (`.github/workflows/build.yml`):** set `java-version: '17'` in the `snyk` job, and in the `build` job for `java`. The `build` matrix shares one JDK with `kotlin/`, which targets 25 too: either move `kotlin/pom.xml` to 17 as well (`kotlin.compiler.jvmTarget` and `maven.compiler.release`; Kotlin 2.4 and JUnit 6 support it), or give the matrix a per-project `java-version`.
+5. **Docs:** update the JDK in [Requirements](#requirements) and in `AGENTS.md`.
+
+Then run `mvn verify` on JDK 17 (needs Docker for the `*IT` tests) and `docker compose up --build`.
+
 ## Improvements
 
 - **TODO: idempotent, retry-safe balance update.** Deposits are independent, so updating them together, in batches or one at a time gives the same balances. But `PUT /time-deposits/balances` is not idempotent: every call adds one more (compounding) month, and `days` is not advanced, so the balance depends on how often it is called, not on elapsed time. A run is also not all-or-nothing: retrying after a partial failure gives a second month to the batches already committed. Kept as is until the requirements are clarified. One possible fix: store the last interest period per deposit (for example the month) and skip deposits that already have it, and advance `days` (or derive it from a start date).
