@@ -20,7 +20,7 @@ Interest rules to preserve:
 
 ## Stack
 
-Spring Boot 4.0.x (Web, Data JPA, Actuator), PostgreSQL 18, Flyway, OpenAPI 3.1 contract with `openapi-generator-maven-plugin` + springdoc, Testcontainers, ArchUnit, Spotless, Snyk, Docker, docker compose. Versions pinned exactly in `pom.xml`.
+Spring Boot 4.1.x (Web MVC, Data JPA, Flyway, Actuator), PostgreSQL 18, Flyway, OpenAPI 3.1 contract with `openapi-generator-maven-plugin` + springdoc, Testcontainers, ArchUnit, Spotless, Snyk, Docker, docker compose. Versions pinned exactly in `pom.xml`.
 
 ## Architecture
 
@@ -31,16 +31,18 @@ org.ikigaidigital
   TimeDeposit, TimeDepositCalculator   existing API, unchanged
   domain/interest/                     InterestPolicy + Basic/Student/Premium policies, InterestPolicies registry
   application/port/in/                 UpdateAllBalancesUseCase, ListTimeDepositsUseCase
-  application/port/out/                TimeDepositRepository (loadAll, saveBalances)
+  application/port/out/                TimeDepositRepository (loadAll, lockAllForUpdate, saveBalances)
   application/                         TimeDepositService, read model (TimeDepositView, WithdrawalView)
   adapter/in/web/                      controller implementing the generated OpenAPI interface
   adapter/out/persistence/             JPA entities, Spring Data repositories, mappers
+  config/                              Spring wiring; transactions around the framework-free service
 ```
 
 - **Calculator:** the plan-type `if` chain becomes one `InterestPolicy` per plan (Strategy + registry); unknown plans earn zero. The no-arg constructor wires the defaults, so callers are unaffected; a second constructor takes custom policies. The shared "first 30 days" rule is applied once.
 - **`days` does not advance** on update, so repeated updates never cross a threshold. Kept as is; documented in the `updateBalance` Javadoc with a `TODO`.
 - **Withdrawals** are returned by GET but not used in interest calculation.
-- **Update flow:** load all deposits, map to `TimeDeposit`, call `updateBalance`, save balances, in one transaction. `Double` ↔ `BigDecimal(scale 2)` at the persistence boundary.
+- **Update flow:** lock and load all deposits (`SELECT ... FOR UPDATE`, ordered by id), map to `TimeDeposit`, call `updateBalance`, save balances, in one transaction. `Double` ↔ `BigDecimal(scale 2)` at the persistence boundary.
+- **Row locking:** the `PUT` locks every affected row with `PESSIMISTIC_WRITE` until commit, so concurrent updates wait for each other instead of reading the same balance and applying one month twice (lost update). Locks are taken in id order to avoid deadlocks; the locking query requires a transaction. `GET` takes no locks.
 
 ## Database
 
@@ -59,7 +61,7 @@ Contract first: `src/main/resources/openapi/time-deposits.yaml` is the source of
 | Method | Path | Result |
 | --- | --- | --- |
 | `GET` | `/api/v1/time-deposits` | `200` `TimeDepositPage` |
-| `PUT` | `/api/v1/time-deposits/balances` | `204`; applies one month of interest to every deposit (not idempotent) |
+| `PUT` | `/api/v1/time-deposits/balances` | `204`; applies one month of interest to every deposit (not idempotent; concurrent calls serialized by row locks) |
 
 `TimeDepositPage` wraps the list so paging can be added without a breaking change:
 
@@ -83,9 +85,9 @@ Actuator is off by default; `local` and `dev` profiles expose `health` and `info
 | --- | --- |
 | Calculator | Characterization tests (all plans, days 30/31/45/46/365/366, unknown plan, rounding), written before the refactor |
 | Policies, service | Plain JUnit 6; service against an in-memory repository fake |
-| Persistence | `@DataJpaTest` + Testcontainers PostgreSQL: migrations, mapping, no N+1 on withdrawals |
+| Persistence | `@DataJpaTest` + Testcontainers PostgreSQL: migrations, mapping, locking query, no N+1 on withdrawals |
 | Web | `@WebMvcTest`: paths, status codes, JSON shape |
-| End to end | `@SpringBootTest` + Testcontainers: `PUT` then `GET` |
+| End to end | `@SpringBootTest` + Testcontainers: `PUT` then `GET`; parallel updates each apply one month; rows locked until commit |
 | Architecture | ArchUnit layer rules |
 
 Unit tests run in `test` (surefire), container tests in `verify` (failsafe, `*IT`). CI already runs `mvn -B verify`.
@@ -96,6 +98,7 @@ Unit tests run in `test` (surefire), container tests in `verify` (failsafe, `*IT
 - **Snyk:** CI job on `java/` failing on high/critical; container scan once the image exists. Needs the `SNYK_TOKEN` secret; skipped without it.
 - **Dockerfile:** multi-stage, Temurin 25 JRE runtime, layered jar, non-root, config via `SPRING_DATASOURCE_*` env vars.
 - **compose.yaml:** `postgres:18` with healthcheck + `app` built from the Dockerfile, `local` profile.
+- **CI smoke test:** a `docker` job builds the image with compose and checks both endpoints, Swagger UI and actuator health.
 
 ## Delivery steps
 
@@ -125,3 +128,4 @@ Each step is one or a few atomic commits that keep `mvn -B verify` green.
 | Quality | Spotless (format locally, check in CI), Snyk |
 | `days` | Not advanced; Javadoc `TODO` |
 | Branching | Always from latest `main` |
+| Concurrency | `PUT` locks the affected rows (`SELECT ... FOR UPDATE`) |

@@ -14,11 +14,23 @@ Rules for any coding agent working in this repo. Task requirements live in `READ
 README.md                         assignment and requirements
 docs/java-implementation-plan.md  agreed plan and decisions for the Java solution
 java/README.md                    how to run, call and build the Java service
-java/pom.xml                      JUnit 6, AssertJ
+java/pom.xml                      Spring Boot 4.1, openapi-generator, Spotless, failsafe (*IT)
+java/Dockerfile, java/compose.yaml
 java/src/main/java/org/ikigaidigital/
   TimeDeposit.java                shared model; do not break its API
   TimeDepositCalculator.java      updateBalance; keep signature and behaviour
-java/src/test/java/org/ikigaidigital/TimeDepositCalculatorTest.java
+  domain/interest/                one InterestPolicy per plan, InterestPolicies registry
+  application/                    TimeDepositService, read model, port/in, port/out
+  adapter/in/web/                 controller implementing the generated TimeDepositsApi
+  adapter/out/persistence/        JPA entities, repository (row locking), mapper
+  config/                         Spring wiring, transactions
+java/src/main/resources/
+  openapi/time-deposits.yaml      API contract (source of truth)
+  db/migration/, db/seed/         Flyway migrations; seed only for the local profile
+java/src/test/java/org/ikigaidigital/
+  TimeDepositCalculatorTest.java  characterization tests; must stay green
+  ArchitectureTest.java           ArchUnit layer rules
+  *IT.java                        Testcontainers tests (need Docker), run in verify
 kotlin/pom.xml                    Kotlin 2.4, JUnit 6, AssertJ
 kotlin/src/main/kotlin/org/ikigaidigital/
   TimeDeposit.kt
@@ -37,6 +49,7 @@ kotlin/src/test/kotlin/org/ikigaidigital/TimeDepositCalculatorTest.kt
   ```
 
 - On failure, read the matching `target/surefire-reports/*.txt` or a narrow slice of `target/build.log` (`grep -n -A15 "<TestName>"`), never the whole log.
+- Without Docker, run `mvn -B -q package` (unit tests only) and rely on CI for `*IT`. On a JDK older than 25, add `-Djava.version=<version>` locally; never change the pom for it.
 - Run one test with `-Dtest=ClassName#method` instead of the full suite while iterating.
 - Read files by line range once you know where to look; do not re-read files you already have.
 - Keep replies short: state the result and the failing test or error line, not the full output.

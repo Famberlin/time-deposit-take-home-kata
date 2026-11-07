@@ -70,6 +70,33 @@ A junior developer implemented domain logic for a time deposit system but did no
 ### Submission Instructions
 - Provide clear instructions on how to trigger the endpoints using the Swagger contract.
 - Email the link to your public GitHub repository.
+## Solution
+
+The Java solution lives in [`java/`](java/README.md): a Spring Boot service with the two endpoints, PostgreSQL with Flyway, an OpenAPI contract with Swagger UI, hexagonal packages and Testcontainers tests. Run it with `cd java && docker compose up --build` and open <http://localhost:8080/swagger-ui.html>. Design and decisions: [Java implementation plan](docs/java-implementation-plan.md).
+
+## AI-Assisted Development
+
+### Setup
+
+- **Tool:** [Claude Code](https://claude.com/claude-code) (Anthropic's coding agent) in cloud sessions on claude.ai, organised as a Claude project linked to this repository. A coordinator session talks with the developer and starts one thread session per task; each thread works on a fresh clone and a `claude/*` branch and opens a draft pull request.
+- **Rules:** [`AGENTS.md`](AGENTS.md) holds the agent rules (scope `java/` and `kotlin/` only, always branch from the latest `main`, keep `updateBalance` behaviour, small atomic commits, keep build output out of the context). [`CLAUDE.md`](CLAUDE.md) imports it, so any agent that reads either file gets the same rules.
+- **Project instructions and memory:** a project-level instruction to close a thread once its PR is merged or closed, and shared project memory for decisions the developer made (table names, endpoint paths, response shape, actuator, row locking), so later sessions do not ask again.
+- **Feedback loop:** GitHub Actions (`mvn -B verify`, Docker smoke test, optional Snyk) on every pull request; the agent subscribes to its PR and fixes CI failures and review comments. Every change is reviewed and merged by the developer.
+
+To reproduce: open this repository in Claude Code (CLI, IDE or claude.ai/code); it picks up `CLAUDE.md`/`AGENTS.md` automatically. JDK 25 and Docker are needed for the full build.
+
+### What was AI-assisted, and why
+
+| Part | AI role | Developer role |
+| --- | --- | --- |
+| Repository audit, dependency upgrades, CI | Implemented | Reviewed and merged |
+| [Implementation plan](docs/java-implementation-plan.md) | Drafted options and trade-offs | Made the decisions (stack, naming, endpoints, response wrapper, actuator, row locking) |
+| Characterization tests, interest policy refactoring | Implemented test-first | Reviewed behaviour preservation |
+| Spring Boot service, persistence, OpenAPI contract, tests, Docker | Implemented step by step in atomic commits | Reviewed, asked for changes (for example row locking on `PUT`) |
+| Documentation | Drafted | Reviewed |
+
+AI took the mechanical and boilerplate-heavy work (scaffolding, mapping code, test matrices, Docker and CI setup) so review time could go to the design decisions and to checking that `updateBalance` behaves exactly as before.
+
 ## Dependency and Tooling Upgrades
 
 Before starting the refactoring, the `java/` and `kotlin/` projects were moved to current, supported versions so the solution builds on a modern toolchain. Behaviour of `TimeDepositCalculator.updateBalance` is unchanged; the existing tests pass before and after.
