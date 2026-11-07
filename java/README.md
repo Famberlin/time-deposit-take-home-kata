@@ -62,6 +62,8 @@ mvn verify     # unit + Testcontainers integration tests + Spotless check
 
 Unit tests (`*Test`) need no Docker; integration tests (`*IT`) do. CI runs `mvn -B verify -Dspotless.apply.skip=true`, a Docker smoke test and, when `SNYK_TOKEN` is set, a Snyk scan.
 
+`mvn verify` also writes a JaCoCo coverage report for unit and integration tests together to `target/site/jacoco/index.html` (plus `jacoco.xml` for tools); the generated API code is excluded. Run `mvn clean verify` for a fresh report, since the agent appends to `target/jacoco.exec`. CI uploads the report as the `java-coverage-report` artifact. There is no coverage threshold; JaCoCo's `check` goal can add one later if the team wants a gate.
+
 ## Design
 
 Hexagonal, in one Maven module; `ArchitectureTest` (ArchUnit) keeps the core free of Spring, JPA and adapters.
