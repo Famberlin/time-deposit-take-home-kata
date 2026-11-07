@@ -41,5 +41,6 @@ kotlin/src/test/kotlin/org/ikigaidigital/TimeDepositCalculatorTest.kt
 
 ## Working rules
 
+- Before starting any task, fetch `origin/main` and branch from the latest `main` (`git fetch origin main && git checkout -b <branch> origin/main`). Earlier work is merged there; never build on a stale feature branch. If your branch falls behind, rebase it onto `origin/main`.
 - Keep `TimeDepositCalculator.updateBalance` behaviour unchanged; run its tests before and after refactoring.
 - Small, atomic commits with clear messages.
