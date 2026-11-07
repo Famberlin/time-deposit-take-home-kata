@@ -47,6 +47,7 @@ org.ikigaidigital
 - **Calculator:** same Strategy + registry refactor as Java. Default constructor argument wires the default policies, so `TimeDepositCalculator()` still works.
 - **`days` does not advance**; KDoc on `updateBalance` with a `TODO`, as in Java.
 - **Transactions:** without Spring's `@Transactional`, the service runs load, calculate and save inside `Transactor.inTransaction { }`, a port implemented with Exposed `suspendTransaction` on `Dispatchers.IO`. The application layer never imports Exposed.
+- **Row locking:** `loadAllForUpdate` selects with `FOR UPDATE` (Exposed `.forUpdate()`), so concurrent `PUT`s are serialized and never both apply interest to the same starting balance.
 - **Withdrawals:** GET loads deposits and withdrawals in two queries and groups them in memory (no N+1). Not used in interest calculation.
 - `Double` ↔ `BigDecimal(scale 2)` conversion at the persistence boundary.
 
@@ -105,11 +106,16 @@ Each step is one or a few atomic commits that keep `mvn -B verify` green.
 10. Shade plugin, Dockerfile, `.dockerignore`, compose; verify via Swagger UI.
 11. `kotlin/README.md` (run, call, build), design notes; update AGENTS.md project map.
 
+## Decisions (2026-11-07)
+
+| Topic | Decision |
+| --- | --- |
+| Concurrent `PUT` | Locks affected rows (`SELECT … FOR UPDATE`), same as Java |
+
 ## Open questions (defaults used unless told otherwise)
 
 | Question | Default |
 | --- | --- |
-| Lock rows on `PUT` (`SELECT … FOR UPDATE`) so two concurrent updates cannot both apply interest from the same balance? Java plan does not do this. | Yes, cheap with Exposed `.forUpdate()`; flag it for Java too |
 | Netty or CIO engine? | Netty (most mature, best documented) |
 | Konsist or ArchUnit for layer rules? | Konsist (source-based, Kotlin-aware); ArchUnit also works on Kotlin bytecode if parity with Java matters more |
 | DI framework (Koin or Ktor DI plugin)? | None; a handful of objects wired by hand |
