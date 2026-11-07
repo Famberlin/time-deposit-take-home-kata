@@ -1,11 +1,9 @@
 spring:
   application:
     name: time-deposit
-  datasource:
-    # Overridden with SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME and SPRING_DATASOURCE_PASSWORD.
-    url: jdbc:postgresql://localhost:5432/time_deposits
-    username: time_deposits
-    password: time_deposits
+  # No datasource here on purpose: the connection and its credentials come only from the
+  # environment (SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD).
+  # Tests get theirs from Testcontainers (@ServiceConnection in PostgresContainerConfiguration).
   jpa:
     open-in-view: false
     hibernate:

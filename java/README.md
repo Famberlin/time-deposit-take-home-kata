@@ -19,7 +19,7 @@ Compose reads the database name, user and password from `java/.env`, which is gi
 
 Then open Swagger UI at <http://localhost:8080/swagger-ui.html>. The `local` profile loads demo data (every plan and the 30/45/365-day edges). Actuator health: <http://localhost:8081/actuator/health>.
 
-Without compose, run `TestTimeDepositApplication` from the IDE (or `mvn spring-boot:test-run`): it starts PostgreSQL with Testcontainers and uses the `local` profile.
+Without compose, run `TestTimeDepositApplication` from the IDE (or `mvn spring-boot:test-run`): it starts PostgreSQL with Testcontainers and uses the `local` profile. To run against your own database instead, export `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` first; the service has no built-in credentials.
 
 ## API
 
@@ -87,7 +87,7 @@ PostgreSQL, schema managed by Flyway: [`src/main/resources/db/migration`](src/ma
 
 | Variable | Purpose |
 | --- | --- |
-| `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | Database connection |
+| `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD` | Database connection. Required: there are no defaults in the code or `application.yaml`. Compose sets them from `.env`; tests get them from Testcontainers |
 | `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` | Deposits per transaction for the balance update (default 500) |
 | `SPRING_PROFILES_ACTIVE` | `local` loads demo data; `local` and `dev` enable actuator (`health`, `info` on port 8081) |
 
