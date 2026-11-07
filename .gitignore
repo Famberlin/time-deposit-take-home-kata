@@ -8,3 +8,11 @@ __pycache__/
 .idea/
 package-lock.json
 .vscode/
+
+# excluding iml
+*.iml
+
+# excluding non-used projects from tracking/scanning
+c#/
+python/
+typescript/
