@@ -1,0 +1,15 @@
+# Snyk (https://snyk.io) policy file for the Java service; read by `snyk test` in java/.
+version: v1.25.1
+ignore:
+  SNYK-JAVA-ORGGLASSFISHJAXB-20883142:
+    - '*':
+        reason: >-
+          CVE-2026-92877, XXE in jaxb-core XmlFactory (all versions from 4.0.0-M4; 4.0.9 is the latest
+          release and no fixed version is published). Not exploitable here: jaxb-runtime/jaxb-core only
+          come in through hibernate-core, which uses JAXB solely to read its own mapping XML
+          (orm.xml/hbm.xml) from the classpath at startup. This service ships no mapping XML
+          (annotations only), and no endpoint accepts or parses XML (the API is JSON only). Remove this
+          entry and upgrade jaxb-core once a fixed release is out; see the README "Security findings".
+        expires: 2027-01-07T00:00:00.000Z
+        created: 2026-11-07T15:30:00.000Z
+patch: {}
