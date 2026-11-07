@@ -1,0 +1,14 @@
+spring:
+  flyway:
+    # Demo data, including the 30/45/365-day edges, for local runs only.
+    locations: classpath:db/migration,classpath:db/seed
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    access:
+      default: read-only
+    web:
+      exposure:
+        include: health,info

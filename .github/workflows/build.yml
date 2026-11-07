@@ -25,4 +25,54 @@ jobs:
           cache: maven
           cache-dependency-path: ${{ matrix.project }}/pom.xml
       - name: Build and test
-        run: mvn -B verify
+        run: mvn -B verify -Dspotless.apply.skip=true
+
+  snyk:
+    name: snyk (java)
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    defaults:
+      run:
+        working-directory: java
+    steps:
+      - name: Skip without SNYK_TOKEN
+        if: env.SNYK_TOKEN == ''
+        working-directory: .
+        run: echo "::notice::SNYK_TOKEN secret is not set; skipping the Snyk scan."
+      - uses: actions/checkout@v7
+        if: env.SNYK_TOKEN != ''
+      - uses: actions/setup-java@v6
+        if: env.SNYK_TOKEN != ''
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: java/pom.xml
+      - name: Scan dependencies
+        if: env.SNYK_TOKEN != ''
+        run: npx --yes snyk@1 test --file=pom.xml --severity-threshold=high
+
+  docker:
+    name: docker (java)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start PostgreSQL and the service
+        run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: Smoke test both endpoints and Swagger UI
+        run: |
+          curl -fsS --retry 30 --retry-all-errors --retry-delay 2 http://localhost:8080/api/v1/time-deposits
+          curl -fsS -X PUT -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/v1/time-deposits/balances | grep -q 204
+          curl -fsS http://localhost:8080/api/v1/time-deposits | grep -q '"total":9'
+          curl -fsSL -o /dev/null http://localhost:8080/swagger-ui.html
+          curl -fsS http://localhost:8081/actuator/health | grep -q UP
+      - name: Service logs
+        if: failure()
+        run: docker compose logs app
+      - name: Stop
+        if: always()
+        run: docker compose down --volumes
