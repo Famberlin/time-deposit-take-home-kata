@@ -25,4 +25,4 @@ jobs:
           cache: maven
           cache-dependency-path: ${{ matrix.project }}/pom.xml
       - name: Build and test
-        run: mvn -B verify
+        run: mvn -B verify -Dspotless.apply.skip=true

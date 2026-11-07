@@ -23,7 +23,8 @@ public class TimeDepositCalculator {
                 }
             }
 
-            double a2d = xs.get(i).getBalance() + (new BigDecimal(interest).setScale(2, RoundingMode.HALF_UP)).doubleValue();
+            double a2d =
+                    xs.get(i).getBalance() + (new BigDecimal(interest).setScale(2, RoundingMode.HALF_UP)).doubleValue();
             xs.get(i).setBalance(a2d);
         }
     }
