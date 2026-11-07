@@ -1,9 +1,13 @@
 spring:
   application:
     name: time-deposit
-  # No datasource here on purpose: the connection and its credentials come only from the
-  # environment (SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD).
+  # No credentials or defaults here: the values come from DATABASE_URL, DATABASE_USERNAME and
+  # DATABASE_PASSWORD. The standard SPRING_DATASOURCE_* variables still override them.
   # Tests get theirs from Testcontainers (@ServiceConnection in PostgresContainerConfiguration).
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
