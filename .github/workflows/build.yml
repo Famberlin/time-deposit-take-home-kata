@@ -26,6 +26,13 @@ jobs:
           cache-dependency-path: ${{ matrix.project }}/pom.xml
       - name: Build and test
         run: mvn -B verify -Dspotless.apply.skip=true
+      - name: Upload coverage report
+        if: matrix.project == 'java' && !cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: java-coverage-report
+          path: java/target/site/jacoco/
+          if-no-files-found: ignore
 
   snyk:
     name: snyk (java)

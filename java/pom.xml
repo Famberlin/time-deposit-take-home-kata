@@ -30,6 +30,7 @@
         <archunit.version>1.5.1</archunit.version>
         <spotless.version>3.11.0</spotless.version>
         <palantir-java-format.version>2.103.0</palantir-java-format.version>
+        <jacoco.version>0.8.16</jacoco.version>
     </properties>
 
     <dependencies>
@@ -156,6 +157,33 @@
                             <goal>integration-test</goal>
                             <goal>verify</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- Coverage: one agent file shared by surefire and failsafe (both use argLine), so the
+                     report in verify covers unit and integration tests together. Generated API code is excluded. -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>org/ikigaidigital/adapter/in/web/api/**</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <phase>verify</phase>
                     </execution>
                 </executions>
             </plugin>
