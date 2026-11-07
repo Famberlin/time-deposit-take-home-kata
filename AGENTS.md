@@ -13,6 +13,7 @@ Rules for any coding agent working in this repo. Task requirements live in `READ
 ```
 README.md                         assignment and requirements
 docs/java-implementation-plan.md  agreed plan and decisions for the Java solution
+java/README.md                    how to run, call and build the Java service
 java/pom.xml                      JUnit 6, AssertJ
 java/src/main/java/org/ikigaidigital/
   TimeDeposit.java                shared model; do not break its API
