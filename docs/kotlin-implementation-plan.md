@@ -19,7 +19,8 @@ Ktor service in `kotlin/` that mirrors the Java service now on `main` ([plan](ja
 | API contract | Same `openapi/time-deposits.yaml`; `openapi-generator-maven-plugin` (`kotlin`, models only, kotlinx_serialization); Ktor `swaggerUI` plugin | openapi-generator interface + springdoc |
 | Wiring | `config/` package wires objects by hand in `Application.module()` | Spring `@Configuration` in `config/` |
 | Health | Own `health`/`info` routes on a second connector, port 8081, `local`/`dev` only | Actuator on 8081, `local`/`dev` only |
-| Tests | JUnit 6, AssertJ, Ktor `testApplication`, Testcontainers PostgreSQL, failsafe for `*IT` | same + `@WebMvcTest`, `@DataJpaTest` |
+| Tests | JUnit 6, AssertJ, Ktor `testApplication`, Testcontainers PostgreSQL, failsafe for `*IT`, JaCoCo | same + `@WebMvcTest`, `@DataJpaTest` |
+| Logging | Logback with `logback-ecs-encoder`: ECS JSON by default, plain text for `local` | Boot structured logging: ECS by default, plain for `local` |
 | Architecture rules | Konsist | ArchUnit |
 | Formatting | Spotless with ktlint | Spotless with palantir-java-format |
 | Packaging | Shaded jar (`maven-shade-plugin`), multi-stage Dockerfile, compose | Layered Boot jar, Dockerfile, compose |
@@ -71,8 +72,9 @@ Only models are generated; routes are hand-written because the generator's Ktor 
 
 `application.yaml` (Ktor YAML config), mirroring Java's keys:
 
-- `db.url`, `db.user`, `db.password`, overridable with `DB_URL`, `DB_USER`, `DB_PASSWORD`.
+- `db.url`, `db.username`, `db.password` read from `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` (same variables as Java) with no defaults and no credentials in the repo; startup fails if one is missing. Tests and `TestApplication.kt` take them from Testcontainers.
 - `time-deposits.balance-update.batch-size: 500`, overridable with `TIME_DEPOSITS_BALANCE_UPDATE_BATCH_SIZE` (same variable as Java).
+- Log format from `LOG_FORMAT` (`ecs` default, `plain`): `logback.xml` defines both appenders and picks one with `${LOG_FORMAT:-ecs}`; compose sets `plain` with the `local` profile.
 - Profile from `APP_PROFILE` (`local`, `dev`, default none). `local` adds `db/seed` to Flyway; `local` and `dev` start the second connector on 8081 with `GET /health` (`{"status":"UP"}` after a DB check) and `GET /info`. Port 8080 serves only the API and Swagger UI.
 
 ## Testing
@@ -90,15 +92,16 @@ Port Java's test classes and cases with the same inputs and expected values:
 | `ArchitectureTest` (ArchUnit) | `ArchitectureTest` (Konsist) |
 | `TestTimeDepositApplication` (local run with Testcontainers) | `TestApplication.kt` main in test sources: starts PostgreSQL, runs `module()` with `local` |
 
-Unit tests in `test` (surefire), container tests in `verify` (failsafe, `*IT`).
+Unit tests in `test` (surefire), container tests in `verify` (failsafe, `*IT`). JaCoCo as in Java: one agent file for surefire and failsafe, report in `verify` at `target/site/jacoco/`, generated models excluded, no threshold.
 
 ## Build, CI and delivery
 
+- **Coverage:** extend the `Upload coverage report` step to both matrix entries (`<project>-coverage-report`).
 - **Spotless + ktlint:** same executions as Java (`apply` on `package`, `check` on `verify`). CI already runs `mvn -B verify -Dspotless.apply.skip=true` for both matrix entries, so nothing changes there. `.editorconfig` sets `ktlint_official`, matching `kotlin.code.style=official`.
-- **Snyk:** turn the `snyk (java)` job into a `[java, kotlin]` matrix; same skip without `SNYK_TOKEN`, same high threshold.
-- **Dockerfile:** multi-stage like Java (`maven:3.9-eclipse-temurin-25` build, `-DskipTests -Dspotless.apply.skip=true`, `eclipse-temurin:25-jre` runtime, non-root `app` user), running the shaded jar; exposes 8080 and 8081.
-- **compose.yaml:** same services as Java with `APP_PROFILE=local` and `DB_*` variables. Host ports 8090/8091 so it can run next to the Java stack.
-- **CI smoke test:** turn the `docker (java)` job into a matrix with a port per project; same curl checks (both endpoints, `"total":9` after seed, Swagger UI, health `UP`).
+- **Snyk:** turn the `snyk (java)` job into a `[java, kotlin]` matrix; same skip without `SNYK_TOKEN`, same high threshold. Fix findings like Java did: pin patched versions in `pom.xml` properties with a comment (for example Logback, and Jackson pulled in by the test-only validator), exclude unmaintained transitives, and add a `kotlin/.snyk` ignore with reason and expiry only when no fix exists, recorded in the root README's Security findings. Java's jaxb ignore does not apply: there is no Hibernate here.
+- **Dockerfile:** multi-stage like Java (`maven:3.9-eclipse-temurin-25` build, `-DskipTests -Dspotless.apply.skip=true`, `eclipse-temurin:25-jre` runtime, non-root `app` user), running the shaded jar; exposes 8080 and 8081. `.dockerignore` excludes `.env`.
+- **compose.yaml:** same services as Java, credentials from a git-ignored `kotlin/.env` (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, each required with `:?`), template in `kotlin/.env.example`; app gets `DATABASE_*`, `APP_PROFILE=local`, `LOG_FORMAT=plain`. Host ports 8090/8091 so it can run next to the Java stack.
+- **CI smoke test:** turn the `docker (java)` job into a matrix with a port per project; same `cp .env.example .env` step and curl checks (both endpoints, `"total":9` after seed, Swagger UI, health `UP`).
 
 ## Delivery steps
 
@@ -106,14 +109,14 @@ Each step is one or a few atomic commits that keep `mvn -B verify` green.
 
 1. Spotless + ktlint (format-only commit), Snyk matrix; characterization tests ported from Java on untouched code.
 2. Interest policies; calculator delegates to them; policy tests; Konsist `ArchitectureTest`.
-3. Ktor, Exposed, Flyway, Hikari, failsafe; `Application.kt` and config loading.
+3. Ktor, Exposed, Flyway, Hikari, failsafe, JaCoCo; `Application.kt`, config loading from `DATABASE_*`, ECS/plain logging.
 4. Ports, service, read model, `TransactionRunner`; service tests.
 5. Migrations and seed copied from Java.
 6. Persistence adapter + `TimeDepositPersistenceAdapterIT`.
 7. OpenAPI models, routes, Swagger UI + route and contract tests.
 8. Health/info connector for `local`/`dev`.
 9. `TimeDepositApplicationIT`; `TestApplication.kt`.
-10. Shade plugin, Dockerfile, `.dockerignore`, compose; CI smoke-test matrix.
+10. Shade plugin, Dockerfile, `.dockerignore`, compose with `.env.example`; CI smoke-test and coverage upload for both projects.
 11. `kotlin/README.md` (run, call, build, like `java/README.md`); Kotlin in the root README's Solution and AI-assisted sections; AGENTS.md project map.
 
 ## Decisions (2026-11-07)
@@ -121,7 +124,7 @@ Each step is one or a few atomic commits that keep `mvn -B verify` green.
 | Topic | Decision |
 | --- | --- |
 | Concurrent `PUT` | Batches of configurable size (default 500), one transaction per batch, locking only that batch's rows (`SELECT … FOR UPDATE`); same as Java |
-| Everything else | As in the Java plan's decisions: snake_case tables, `/api/v1` paths, `PUT` update, `{ items, total }`, health only in `local`/`dev`, format locally and check in CI, Snyk, one module with layer rules, `days` not advanced |
+| Everything else | As in the Java plan's decisions: snake_case tables, `/api/v1` paths, `PUT` update, `{ items, total }`, health only in `local`/`dev`, format locally and check in CI, Snyk, one module with layer rules, `days` not advanced, credentials only from env/`.env`, ECS JSON logs except `local`, JaCoCo report without threshold |
 
 ## Open questions (defaults used unless told otherwise)
 
