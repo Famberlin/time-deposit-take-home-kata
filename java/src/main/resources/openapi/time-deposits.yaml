@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: XA Bank Time Deposits
+  version: 1.0.0
+  description: |
+    Lists time deposits and applies monthly interest.
+
+    Interest per month: basic 1% a year, student 3% a year (none after one year),
+    premium 5% a year (from day 46). No plan earns interest in its first 30 days.
+servers:
+  - url: http://localhost:8080
+    description: Local (docker compose)
+tags:
+  - name: time-deposits
+    description: Time deposits and their balances
+paths:
+  /api/v1/time-deposits:
+    get:
+      tags: [time-deposits]
+      operationId: listTimeDeposits
+      summary: List all time deposits
+      description: Returns every time deposit with its withdrawals, ordered by id.
+      # TODO: add page and size query parameters; the response is already wrapped for it.
+      responses:
+        '200':
+          description: All time deposits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeDepositPage'
+  /api/v1/time-deposits/balances:
+    put:
+      tags: [time-deposits]
+      operationId: updateBalances
+      summary: Apply one month of interest to every balance
+      description: |
+        Adds one month of interest to the balance of every time deposit. Not idempotent:
+        each call adds another month. Concurrent calls are serialized by row locks, so
+        each call applies exactly one month. `days` is not changed.
+      responses:
+        '204':
+          description: Balances updated
+components:
+  schemas:
+    TimeDepositPage:
+      type: object
+      description: |
+        All time deposits. Wrapped so pagination can be added without a breaking change.
+        TODO: add page and size fields with pagination.
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeDeposit'
+        total:
+          type: integer
+          format: int64
+          description: Number of time deposits
+          example: 1
+    TimeDeposit:
+      type: object
+      required: [id, planType, balance, days, withdrawals]
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 1
+        planType:
+          type: string
+          description: basic, student or premium; other plans earn no interest
+          example: basic
+        balance:
+          type: number
+          description: Balance with two decimals
+          example: 1234.56
+        days:
+          type: integer
+          format: int32
+          description: Age of the deposit in days
+          example: 45
+        withdrawals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Withdrawal'
+    Withdrawal:
+      type: object
+      required: [id, amount, date]
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 7
+        amount:
+          type: number
+          description: Amount with two decimals
+          example: 100.00
+        date:
+          type: string
+          format: date
+          example: '2026-10-01'
