@@ -61,6 +61,8 @@ jobs:
         working-directory: java
     steps:
       - uses: actions/checkout@v7
+      - name: Create .env from the template
+        run: cp .env.example .env
       - name: Start PostgreSQL and the service
         run: docker compose up --build --detach --wait --wait-timeout 300
       - name: Smoke test both endpoints and Swagger UI

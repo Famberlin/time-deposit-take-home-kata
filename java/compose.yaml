@@ -1,19 +1,20 @@
 # Local run: PostgreSQL plus the service with demo data.
+#   cp .env.example .env   # once; credentials live in .env (git-ignored)
 #   docker compose up --build
 # API and Swagger UI: http://localhost:8080/swagger-ui.html, actuator: http://localhost:8081/actuator/health
 services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_DB: time_deposits
-      POSTGRES_USER: time_deposits
-      POSTGRES_PASSWORD: time_deposits
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env, see .env.example}
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env, see .env.example}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env, see .env.example}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U time_deposits -d time_deposits"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -25,9 +26,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: local
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/time_deposits
-      SPRING_DATASOURCE_USERNAME: time_deposits
-      SPRING_DATASOURCE_PASSWORD: time_deposits
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?set in .env, see .env.example}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?set in .env, see .env.example}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?set in .env, see .env.example}
     ports:
       - "8080:8080"
       - "8081:8081"

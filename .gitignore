@@ -16,3 +16,7 @@ package-lock.json
 c#/
 python/
 typescript/
+# local environment files with credentials (templates stay tracked)
+.env
+.env.*
+!.env.example
