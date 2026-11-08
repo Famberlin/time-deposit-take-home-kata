@@ -140,6 +140,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Same reason as failsafe below: spring-boot:test-run talks to a Testcontainers PostgreSQL. -->
+                    <jvmArguments>-Duser.timezone=UTC</jvmArguments>
+                </configuration>
             </plugin>
             <plugin>
                 <!-- Contract first: generates the API interface and DTOs from the OpenAPI contract. -->
@@ -183,6 +187,11 @@
                 <!-- Integration tests (*IT) need Docker for Testcontainers and run in verify. -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!-- PostgreSQL rejects JVM zones it does not know (postgres:18 lacks legacy aliases such as
+                         "Poland"), and pgjdbc sends the JVM zone on connect. UTC keeps the tests host-independent. -->
+                    <argLine>@{argLine} -Duser.timezone=UTC</argLine>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
