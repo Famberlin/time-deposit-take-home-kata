@@ -5,7 +5,7 @@ Spring Boot service for XA Bank time deposits: lists deposits and applies monthl
 ## Requirements
 
 - JDK 25, Maven 3.9+
-- Docker (for compose and Testcontainers)
+- Docker or Podman (for compose and Testcontainers), see [Docker or Podman](#docker-or-podman)
 
 ## Run locally
 
@@ -19,7 +19,9 @@ Compose reads the database name, user and password from `java/.env`, which is gi
 
 Then open Swagger UI at <http://localhost:8080/swagger-ui.html>. The `local` profile loads demo data (every plan and the 30/45/365-day edges). Actuator health: <http://localhost:8081/actuator/health>.
 
-Without compose, run `TestTimeDepositApplication` from the IDE (or `mvn spring-boot:test-run`): it starts PostgreSQL with Testcontainers and uses the `local` profile. To run against your own database instead, export `DATABASE_URL`, `DATABASE_USERNAME` and `DATABASE_PASSWORD` first; the service has no built-in credentials.
+With Podman, run `podman compose up --build` instead (it needs `podman-compose` or `docker-compose` installed as the compose provider).
+
+Without compose, run `TestTimeDepositApplication` from the IDE (or `mvn spring-boot:test-run`): it starts PostgreSQL with Testcontainers and uses the `local` profile. From the IDE, add `-Duser.timezone=UTC` to the run configuration's VM options if your system time zone is a legacy alias (see below); `mvn spring-boot:test-run` already sets it. To run against your own database instead, export `DATABASE_URL`, `DATABASE_USERNAME` and `DATABASE_PASSWORD` first; the service has no built-in credentials.
 
 ## API
 
@@ -60,9 +62,41 @@ mvn package    # build; also auto-formats with Spotless
 mvn verify     # unit + Testcontainers integration tests + Spotless check
 ```
 
-Unit tests (`*Test`) need no Docker; integration tests (`*IT`) do. CI runs `mvn -B verify -Dspotless.apply.skip=true`, a Docker smoke test and, when `SNYK_TOKEN` is set, a Snyk scan.
+Unit tests (`*Test`) need no Docker; integration tests (`*IT`) need Docker or Podman ([setup](#docker-or-podman)). CI runs `mvn -B verify -Dspotless.apply.skip=true`, a Docker smoke test and, when `SNYK_TOKEN` is set, a Snyk scan.
 
 `mvn verify` also writes a JaCoCo coverage report for unit and integration tests together to `target/site/jacoco/index.html` (plus `jacoco.xml` for tools); the generated API code is excluded. Run `mvn clean verify` for a fresh report, since the agent appends to `target/jacoco.exec`. CI uploads the report as the `java-coverage-report` artifact. There is no coverage threshold; JaCoCo's `check` goal can add one later if the team wants a gate.
+
+## Docker or Podman
+
+Testcontainers (the `*IT` tests and `TestTimeDepositApplication`) works with Docker out of the box. With Podman it needs the Docker-compatible API socket, because there is no `/var/run/docker.sock`.
+
+**Docker:** nothing to set up. Make sure the daemon is running (`docker info`).
+
+**Podman (rootless, Linux):**
+
+1. Enable the API socket once:
+
+   ```bash
+   systemctl --user enable --now podman.socket
+   ```
+
+2. Point Testcontainers at it, either per shell (add it to `~/.bashrc` or `~/.zshrc`):
+
+   ```bash
+   export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock
+   ```
+
+   or once for every JVM, including IDE test runs that do not see your shell variables, in `~/.testcontainers.properties` (use your real path; `podman info --format '{{.Host.RemoteSocket.Path}}'` prints it):
+
+   ```properties
+   docker.host=unix:///run/user/1000/podman/podman.sock
+   ```
+
+3. Run `mvn verify`. Ryuk (Testcontainers' cleanup container) works with rootless Podman 5+. If it fails to start on your setup, for example under SELinux, set `TESTCONTAINERS_RYUK_DISABLED=true` and remove leftover containers with `podman ps -a` afterwards.
+
+On macOS, `podman machine start` prints the socket path to use as `DOCKER_HOST`.
+
+**Time zone:** the PostgreSQL JDBC driver sends the JVM time zone when it connects, and the `postgres:18` image no longer ships legacy zone aliases such as `Poland` or `US/Eastern`. A host set to one of them fails with `invalid value for parameter "TimeZone"`. The build therefore runs the integration tests and `spring-boot:test-run` with `-Duser.timezone=UTC`; this is independent of Docker or Podman.
 
 ## Design
 
